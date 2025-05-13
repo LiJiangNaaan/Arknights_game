@@ -1,0 +1,437 @@
+1.Character.cpp
+Character::Character(const std::string& folderRight, const std::string& folderLeft,
+    const std::string& folderAttackRight, const std::string& folderAttackLeft,
+    const std::string& folderNARight, const std::string& folderNALeft,
+    int totalFrames, int attackFrames, int naFrames)
+    : currentFrame(0), timeSinceLastFrame(0.0f), scaleX(0.5f), scaleY(0.5f),
+    isAttacking(false), isNormalAttacking(false), attackCooldown(0.0f), naCooldown(0.0f) {
+
+    loadTextures(folderRight, rightTextures, totalFrames);
+    loadTextures(folderLeft, leftTextures, totalFrames);
+    loadTextures(folderAttackRight, rightAttackTextures, attackFrames);
+    loadTextures(folderAttackLeft, leftAttackTextures, attackFrames);
+    loadTextures(folderNARight, rightNATextures, naFrames);
+    loadTextures(folderNALeft, leftNATextures, naFrames);
+
+    if (rightTextures.empty() || leftTextures.empty() || rightAttackTextures.empty() ||
+        leftAttackTextures.empty() || rightNATextures.empty() || leftNATextures.empty()) {
+        throw runtime_error("Failed to load character animations!");
+    }
+
+    sprite.emplace(*rightTextures[0]);
+    sprite->setScale({ scaleX, scaleY });
+    baseFrameRate = 0.03f;
+    frameRate = baseFrameRate;
+    normalAttackFrameRate = 0.04f;
+    isFacingRight = true;
+}
+
+void Character::loadTextures(const std::string& folder, std::vector<std::unique_ptr<sf::Texture>>& textures, int totalFrames) {
+    for (int i = 1; i <= totalFrames; ++i) {
+        auto texture = std::make_unique<sf::Texture>();
+        string filePath = folder + " (" + to_string(i) + ").png";
+        if (texture->loadFromFile(filePath)) {
+            texture->setSmooth(true);
+            textures.push_back(move(texture));
+        }
+        else {
+            cerr << "Failed to load texture: " << filePath << endl;
+        }
+    }
+}
+
+void Character::update(float deltaTime, bool isMoving, bool moveLeft, bool& attack, bool& normalAttack, float speed, bool isJumping) {
+    if (attack && attackCooldown <= 0.0f) {
+        if (!isAttacking) {
+            isAttacking = true;
+            currentFrame = 0;
+        }
+        updateAttackAnimation(deltaTime, attack);
+        return;
+    }
+
+    if (normalAttack && naCooldown <= 0.0f && !isAttacking && !isJumping) {
+        if (!isNormalAttacking) {
+            isNormalAttacking = true;
+            currentFrame = 0;
+        }
+        updateNormalAttackAnimation(deltaTime, normalAttack);
+        return;
+    }
+
+    if (attackCooldown > 0.0f) attackCooldown -= deltaTime;
+    if (naCooldown > 0.0f) naCooldown -= deltaTime;
+
+    if (isMoving && !isAttacking && !isNormalAttacking) {
+        isFacingRight = !moveLeft;
+        frameRate = baseFrameRate;
+        timeSinceLastFrame += deltaTime;
+
+        if (timeSinceLastFrame >= frameRate) {
+            timeSinceLastFrame = 0.0f;
+            currentFrame = (currentFrame + 1) % rightTextures.size();
+            if (sprite) {
+                sprite->setTexture(*(isFacingRight ? rightTextures : leftTextures)[currentFrame]);
+            }
+        }
+    }
+    else if (!isAttacking && !isNormalAttacking) {
+        if (sprite) {
+            sprite->setTexture(*(isFacingRight ? rightTextures : leftTextures)[0]);
+        }
+    }
+}
+
+void Character::updateAttackAnimation(float deltaTime, bool& attack) {
+    frameRate = 0.05f;
+    timeSinceLastFrame += deltaTime;
+    auto& attackTex = isFacingRight ? rightAttackTextures : leftAttackTextures;
+
+    if (timeSinceLastFrame >= frameRate) {
+        timeSinceLastFrame = 0.0f;
+        currentFrame++;
+
+        if (currentFrame < attackTex.size()) {
+            if (sprite) {
+                sprite->setTexture(*attackTex[currentFrame]);
+                sprite->setScale({ scaleX, scaleY });
+            }
+        }
+        else {
+            attackCooldown = 0.3f;
+            isAttacking = false;
+            attack = false;
+            currentFrame = 0;
+        }
+    }
+}
+
+void Character::updateNormalAttackAnimation(float deltaTime, bool& normalAttack) {
+    frameRate = normalAttackFrameRate;
+    timeSinceLastFrame += deltaTime;
+    auto& naTex = isFacingRight ? rightNATextures : leftNATextures;
+
+    if (timeSinceLastFrame >= frameRate) {
+        timeSinceLastFrame = 0.0f;
+        currentFrame++;
+
+        if (currentFrame < naTex.size()) {
+            if (sprite) {
+                sprite->setTexture(*naTex[currentFrame]);
+                sprite->setScale({ scaleX, scaleY });
+            }
+        }
+        else {
+            naCooldown = 0.2f;
+            isNormalAttacking = false;
+            normalAttack = false;
+            currentFrame = 0;
+        }
+    }
+}
+
+void Character::setPosition(float x, float y) {
+    if (sprite) {
+        sprite->setPosition({ x, y });
+    }
+}
+
+sf::Vector2f Character::getSize() const {
+    if (sprite) {
+        return { sprite->getGlobalBounds().size.x, sprite->getGlobalBounds().size.y };
+    }
+    return { 0.f, 0.f };
+}
+
+void Character::draw(RenderWindow& window) {
+    if (sprite) {
+        window.draw(*sprite);
+    }
+}
+
+
+
+—————————————————————————————————————
+
+
+
+
+2.CharacterChongyue.h
+#pragma once
+
+#include "character.h"
+
+class CharacterChongyue : public Character {
+public:
+    using Character::Character;
+   
+};
+
+
+
+
+
+—————————————————————————————————————
+
+
+
+
+3.Character.h
+class Character {
+public:
+    Character(const std::string& folderRight, const std::string& folderLeft,
+        const std::string& folderAttackRight, const std::string& folderAttackLeft,
+        const std::string& folderNARight, const std::string& folderNALeft,
+        int totalFrames, int attackFrames, int naFrames);
+
+    void update(float deltaTime, bool isMoving, bool moveLeft, bool& attack, bool& normalAttack, float speed, bool isJumping);
+    void setPosition(float x, float y);
+    sf::Vector2f getSize() const;
+    void draw(sf::RenderWindow& window);
+
+protected:
+    std::vector<std::unique_ptr<sf::Texture>> rightTextures;
+    std::vector<std::unique_ptr<sf::Texture>> leftTextures;
+    std::vector<std::unique_ptr<sf::Texture>> rightAttackTextures;
+    std::vector<std::unique_ptr<sf::Texture>> leftAttackTextures;
+    std::vector<std::unique_ptr<sf::Texture>> rightNATextures;
+    std::vector<std::unique_ptr<sf::Texture>> leftNATextures;
+    std::optional<sf::Sprite> sprite;
+
+    int currentFrame;
+    float baseFrameRate;
+    float frameRate;
+    float timeSinceLastFrame;
+    float scaleX, scaleY;
+
+    bool isFacingRight;
+    bool isAttacking;
+    bool isNormalAttacking;
+    float attackCooldown;
+    float naCooldown;
+    float normalAttackFrameRate;
+
+    void loadTextures(const std::string& folder, std::vector<std::unique_ptr<sf::Texture>>& textures, int totalFrames);
+    void updateAttackAnimation(float deltaTime, bool& attack);
+    void updateNormalAttackAnimation(float deltaTime, bool& normalAttack);
+};
+
+
+
+—————————————————————————————————————
+
+
+
+4.game.cpp
+int main() {
+    RenderWindow window(VideoMode({ 800, 600 }), "animation");
+
+    float groundY = 600.0f * 2.0f / 5.0f;
+
+    Texture backgroundTexture;
+    if (!backgroundTexture.loadFromFile("graphics/background.png")) {
+        cerr << "Failed to load background!" << endl;
+    }
+    Sprite backgroundSprite(backgroundTexture);
+    backgroundSprite.setScale(
+        { 800.0f / backgroundTexture.getSize().x,
+          600.0f / backgroundTexture.getSize().y }
+    );
+
+    Character chenCharacter(
+        "graphics/jieyun_rightmove/images/jieyun",
+        "graphics/jieyun_leftmove/images/jieyun",
+        "graphics/jieyun_rightattack/images/jieyun",
+        "graphics/jieyun_leftattack/images/jieyun",
+        "graphics/jieyun_na_right/jieyun",
+        "graphics/jieyun_na_left/jieyun",
+        60, 60, 7);
+
+    CharacterChongyue chongyue(
+        "graphics/chongyue_rightmove/images/chongyue",
+        "graphics/chongyue_leftmove/images/chongyue",
+        "graphics/chongyue_rightattack/images/chongyue",
+        "graphics/chongyue_leftattack/images/chongyue",
+        "graphics/chongyue_na_right/chongyue",
+        "graphics/chongyue_na_left/chongyue",
+        60, 60, 7);
+
+    Vector2f chenPos(200.0f, groundY);
+    Vector2f chongyuePos(400.0f, groundY);
+
+    bool isMoving1 = false, isMoving2 = false;
+    bool moveLeft1 = false, moveLeft2 = false;
+    bool isAttacking1 = false, isAttacking2 = false;
+    bool normalAttack1 = false, normalAttack2 = false;
+    bool isJumping1 = false, isJumping2 = false;
+    float velocityY1 = 0.0f, velocityY2 = 0.0f;
+    float jumpCooldown1 = 0.0f, jumpCooldown2 = 0.0f;
+    float gravity = 3000.0f;
+
+    Texture chenHeadTexture, chongyueHeadTexture;
+    if (!chenHeadTexture.loadFromFile("graphics/jieyun.jpg") ||
+        !chongyueHeadTexture.loadFromFile("graphics/chongyue.jpg")) {
+        cerr << "Failed to load head images!" << endl;
+        return 1;
+    }
+    Sprite chenHead(chenHeadTexture), chongyueHead(chongyueHeadTexture);
+    chenHead.setScale({ 0.6f, 0.6f });
+    chongyueHead.setScale({ 0.6f, 0.6f });
+    chenHead.setPosition({ 20.0f, 20.0f });
+    chongyueHead.setPosition({ 650.0f, 20.0f });
+
+    RectangleShape chenHPBar(Vector2f(200.0f, 30.0f));
+    RectangleShape chongyueHPBar(Vector2f(200.0f, 30.0f));
+    chenHPBar.setFillColor(Color::Red);
+    chongyueHPBar.setFillColor(Color::Red);
+    chenHPBar.setPosition({ 104.0f, 20.0f });
+    chongyueHPBar.setPosition({ 430.0f, 20.0f });
+
+    Font font;
+    if (!font.openFromFile("graphics/STXINGKA.ttf")) {
+        cerr << "Failed to load font!" << endl;
+        return 1;
+    }
+    Text chenName(font, "截云", 100);
+    Text chongyueName(font, "重岳", 100);
+    chenName.setFillColor(Color::White);
+    chongyueName.setFillColor(Color::White);
+    chenName.setPosition({ 120.0f, 100.0f });
+    chongyueName.setPosition({ 600.0f, 100.0f });
+ 
+    CircleShape chenSkillIndicator(15.0f), chongyueSkillIndicator(15.0f);
+    chenSkillIndicator.setPosition({ 120.0f, 60.0f });
+    chongyueSkillIndicator.setPosition({ 600.0f, 60.0f });
+    chenSkillIndicator.setFillColor(Color::Green);
+    chongyueSkillIndicator.setFillColor(Color::Green);
+
+    int chenHP = 100, chongyueHP = 100;
+    float chenSkillCooldown = 0.0f, chongyueSkillCooldown = 0.0f;
+    float chenSkillMaxCooldown = 15.0f, chongyueSkillMaxCooldown = 20.0f;
+
+
+    Clock clock;
+
+    while (window.isOpen()) {
+        Time dt = clock.restart();
+        float deltaTime = dt.asSeconds();
+
+        while (const optional event = window.pollEvent()) {
+            if (event->is<Event::Closed>()) {
+                window.close();
+            }
+        }
+
+        Vector2f lastPos1 = chenPos;
+        isMoving1 = false;
+        if (!isAttacking1 && !normalAttack1) {
+            if (Keyboard::isKeyPressed(Keyboard::Key::Left)) {
+                chenPos.x -= 0.2f;
+                isMoving1 = true;
+                moveLeft1 = true;
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::Right)) {
+                chenPos.x += 0.2f;
+                isMoving1 = true;
+                moveLeft1 = false;
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::X)) {
+                isAttacking1 = true;
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::C)) {
+                normalAttack1 = true;
+            }
+        }
+
+        if (jumpCooldown1 > 0.0f) jumpCooldown1 -= deltaTime;
+        if (Keyboard::isKeyPressed(Keyboard::Key::Space) && !isJumping1 && jumpCooldown1 <= 0.0f) {
+            isJumping1 = true;
+            jumpCooldown1 = 0.6f;
+            float jumpHeight = chenCharacter.getSize().y * 0.9f;
+            velocityY1 = -std::sqrt(2.0f * gravity * jumpHeight);
+        }
+        if (isJumping1) {
+            velocityY1 += gravity * deltaTime;
+            chenPos.y += velocityY1 * deltaTime;
+            if (chenPos.y >= groundY) {
+                chenPos.y = groundY;
+                velocityY1 = 0.0f;
+                isJumping1 = false;
+            }
+        }
+
+        Vector2f lastPos2 = chongyuePos;
+        isMoving2 = false;
+        if (!isAttacking2 && !normalAttack2) {
+            if (Keyboard::isKeyPressed(Keyboard::Key::A)) {
+                chongyuePos.x -= 0.2f;
+                isMoving2 = true;
+                moveLeft2 = true;
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::D)) {
+                chongyuePos.x += 0.2f;
+                isMoving2 = true;
+                moveLeft2 = false;
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::S)) {
+                isAttacking2 = true;
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::E)) {
+                normalAttack2 = true;
+            }
+        }
+
+        if (jumpCooldown2 > 0.0f) jumpCooldown2 -= deltaTime;
+        if (Keyboard::isKeyPressed(Keyboard::Key::W) && !isJumping2 && jumpCooldown2 <= 0.0f) {
+            isJumping2 = true;
+            jumpCooldown2 = 0.6f;
+            float jumpHeight = chongyue.getSize().y * 0.9f;
+            velocityY2 = -std::sqrt(2.0f * gravity * jumpHeight);
+        }
+        if (isJumping2) {
+            velocityY2 += gravity * deltaTime;
+            chongyuePos.y += velocityY2 * deltaTime;
+            if (chongyuePos.y >= groundY) {
+                chongyuePos.y = groundY;
+                velocityY2 = 0.0f;
+                isJumping2 = false;
+            }
+        }
+
+
+        Vector2f size1 = chenCharacter.getSize();
+        Vector2f size2 = chongyue.getSize();
+        chenPos.x = std::clamp(chenPos.x, 0.0f, 800 - size1.x);
+        chongyuePos.x = std::clamp(chongyuePos.x, 0.0f, 800 - size2.x);
+
+        float speed1 = abs(chenPos.x - lastPos1.x);
+        float speed2 = abs(chongyuePos.x - lastPos2.x);
+
+        chenCharacter.update(deltaTime, isMoving1, moveLeft1, isAttacking1, normalAttack1, speed1, isJumping1);
+        chongyue.update(deltaTime, isMoving2, moveLeft2, isAttacking2, normalAttack2, speed2, isJumping2);
+
+        chenCharacter.setPosition(chenPos.x, chenPos.y);
+        chongyue.setPosition(chongyuePos.x, chongyuePos.y);
+
+        if (chenSkillCooldown > 0.0f) chenSkillCooldown -= deltaTime;
+        if (chongyueSkillCooldown > 0.0f) chongyueSkillCooldown -= deltaTime;
+
+        chenSkillIndicator.setFillColor(chenSkillCooldown <= 0.0f ? Color::Green : Color::Red);
+        chongyueSkillIndicator.setFillColor(chongyueSkillCooldown <= 0.0f ? Color::Green : Color::Red);
+
+        window.clear();
+        window.draw(backgroundSprite);
+        chenCharacter.draw(window);
+        chongyue.draw(window);
+        window.draw(chenHead);
+        window.draw(chongyueHead);
+        window.draw(chenHPBar);
+        window.draw(chongyueHPBar);
+        window.draw(chenName);
+        window.draw(chongyueName);
+        window.draw(chenSkillIndicator);
+        window.draw(chongyueSkillIndicator);
+        window.display();
+    }
+}
+
