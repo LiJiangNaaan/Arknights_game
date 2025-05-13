@@ -1,0 +1,10 @@
+﻿  game.cpp
+D:\SFML-3.0.0-windows-vc17-64-bit\SFML-3.0.0\include\SFML\System\Exception.hpp(41,47): warning C4275: 非 dll 接口 class“std::runtime_error”用作 dll 接口 class“sf::Exception”的基
+  (编译源文件“game.cpp”)
+      C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.34433\include\stdexcept(100,19):
+      参见“std::runtime_error”的声明
+      D:\SFML-3.0.0-windows-vc17-64-bit\SFML-3.0.0\include\SFML\System\Exception.hpp(41,23):
+      参见“sf::Exception”的声明
+  
+D:\Visual Studio\project\Game_test\game.cpp(988,44): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+  Game_test.vcxproj -> D:\Visual Studio\project\Game_test\x64\Debug\Game_test.exe
